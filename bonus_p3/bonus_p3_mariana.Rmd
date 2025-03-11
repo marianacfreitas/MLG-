@@ -102,13 +102,86 @@ flextable(stats_mpg) %>%
 
 ## Ajuste do modelo
 
+A variável `population` não foi incluída no modelo, por ter variãncia extramente baixa
+
 ```{r}
 
 library(MASS)
 
-# Modelo binomial negativo
-modelo_bn <- glm.nb(count ~ gender + region + site + population, 
-                    data = cancer, link = log)
+# Modelo binomial negativo com função de ligação canônica
+modelo_bn <- gglm.nb(count ~ gender + region + site + population, 
+                    data = cancer, link = "log")
+
+# Obtendo o desvio do modelo
+deviance(modelo_log)
+
+```
+A função de ligação log é a mais comum e apropriada para modelos de contagem, como o binomial negativo, pois garante que os valores preditos sejam sempre positivos, o que faz sentido para variáveis de contagem. A função de ligação logit não é apropriada para variáveis de contagem, pois assume que a variável resposta está no intervalo (0, 1). A função de ligação probit é usada para respostas binárias ou proporcionais, assim como o logit. A função de ligação Complementay Log Log apresenta os mesmos problemas que a logit e probit. As funções de ligação identidade e raíz quadrática podem ser usadas para dados de contagem, porém não encontraram uma combinação de coeficientes válidos para ajuste do modelo. Assim, a única alterntiva foi a logarítmica.
+
+Population foi removida nos modelos, pois apresenta colinearidade, ou seja, essa é altamente correlacionada com outras variáveis explicativas ou mesmo com a variável resposta.
+
+
+```{r}
+# Analisando como as variáveis dimunuem o desvio
+
+fit0 <- glm.nb(count ~ 1, 
+                    data = cancer, link = "log")
+
+fit1 <-glm.nb(count ~ gender, 
+                    data = cancer, link = "log")
+
+fit2 <- glm.nb(count ~ gender + region + site, 
+                    data = cancer, link = "log")
+
+fit3 <- glm.nb(count ~ gender + region + site + population, 
+                    data = cancer, link = "log")
+
+anova(fit0, fit1, fit2, fit3)
+```
+
+```{r}
+# Interpretação dos coeficientes do modelo
+coefficients(modelo_bn)
+```
+
+```{r}
+# Gráfico de envelope
+
+# Resíduos observados
+residuos_obs <- residuals(modelo_bn, type = "pearson")
+
+# Valores ajustados
+mu <- predict(modelo_bn, type = "response")
+# Estimar o parâmetro de dispersão theta
+theta <- modelo_bn$theta  
+  
+# Simulação dos resíduos
+n <- length(mu)
+residuos_sim <- matrix(NA, nrow = n, ncol = 100)
+  
+for (i in 1:100) {
+    y_sim <- rnbinom(n, mu = mu, size = theta)  # Simula novos dados
+    modelo_sim <- glm.nb(y_sim ~ gender + region + site + population, 
+                       data = cancer)
+    residuos_sim[, i] <- residuals(modelo_sim, type = "pearson")
+  }
+  
+# Calcular intervalos de confiança (95%)
+envelope_inf <- apply(residuos_sim, 1, quantile, probs = 0.025)
+envelope_sup <- apply(residuos_sim, 1, quantile, probs = 0.975)
+  
+# Ordenar resíduos observados e esperados
+ordem <- order(residuos_obs)
+residuos_obs_ord <- residuos_obs[ordem]
+envelope_inf_ord <- envelope_inf[ordem]
+envelope_sup_ord <- envelope_sup[ordem]
+  
+# Gráfico de envelope
+plot(residuos_obs_ord, type = "n", ylim = range(c(envelope_inf_ord, envelope_sup_ord)), 
+       main = "Gráfico de Envelope", xlab = "Ordem dos Resíduos", ylab = "Resíduos de Pearson")
+  polygon(c(1:n, n:1), c(envelope_sup_ord, rev(envelope_inf_ord)), col = "lightgray", border = NA)
+  lines(residuos_obs_ord, type = "b", pch = 16, col = "blue")
+  abline(h = 0, col = "red", lty = 2)
 
 ```
 
