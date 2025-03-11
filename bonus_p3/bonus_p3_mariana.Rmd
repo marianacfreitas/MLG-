@@ -1,0 +1,112 @@
+---
+title: "Bônus - Prova 3"
+author: "Mariana Costa Freitas"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = F, warning = F)
+```
+
+# Introdução
+
+# Metodologia
+
+# Análise dos dados
+
+## Análise Descritiva
+
+```{r}
+#Carregando os dados
+library(GLMsData)
+library(janitor)
+library(ggplot2)
+library(MASS)
+
+data(ccancer)
+cancer <- ccancer |> clean_names()
+
+summary_table <- summary(cancer)
+knitr::kable(summary_table, caption = "Resumo estatístico do dataset ccancer")
+
+```
+
+```{r}
+# Calcular a densidade observada
+densidade_observada <- density(cancer$count)
+
+# Plotar o gráfico
+ggplot() +
+  geom_line(data = df_observada, aes(x = x, y = y), color = "blue", size = 0.5) +
+  labs(x = "Número de Casos de Câncer",
+       y = "Densidade") +
+  theme_minimal()
+```
+
+```{r}
+b1 <- ggplot(cancer, aes(x = region, y = count, fill = region)) +
+  geom_boxplot(alpha = 0.7) +  # Box plot com transparência 0.7
+  labs(title = " ",
+       x = "Região",
+       y = "Número de Casos",
+       fill = "Região") +
+  theme_minimal() +
+  theme(legend.position = "bottom")  # Posiciona a legenda na parte inferior
+
+b2 <- ggplot(cancer, aes(x = gender, y = count, fill = gender)) +
+  geom_boxplot(alpha = 0.7) +  # Box plot com transparência 0.7
+  labs(title = " ",
+       x = "Gênero",
+       y = "Número de Casos",
+       fill = "Gênero") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+b3 <- ggplot(cancer, aes(x = site, y = count, fill = site)) +
+  geom_boxplot(alpha = 0.7) +  # Box plot com transparência 0.7
+  labs(title = " ",
+       x = "Região",
+       y = "Número de Casos",
+       fill = "Local afetado") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+library(patchwork)
+combined_plot <- (b1 + b2) / (b3)
+print(combined_plot)
+```
+
+```{r}
+library(knitr)
+library(kableExtra)
+# Mostrando superdispersão
+var_mpg <- cancer$count
+
+# Calculando média e variância
+stats_mpg <- data.frame(
+  Estatística = c("Média", "Variância"),
+  Valor = c(mean(var_mpg), var(var_mpg))
+)
+
+# Exibindo a tabela estilizada
+kable(stats_mpg, caption = "Média e Variância do número de casos de câncer'", 
+      format = "html") 
+```
+
+
+## Ajuste do modelo
+
+```{r}
+
+library(MASS)
+
+# Modelo binomial negativo
+modelo_bn <- glm.nb(count ~ gender + region + site + population, 
+                    data = cancer, link = log)
+
+```
+
+
+
+
