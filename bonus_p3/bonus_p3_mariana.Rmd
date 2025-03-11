@@ -32,9 +32,11 @@ knitr::kable(summary_table, caption = "Resumo estatístico do dataset ccancer")
 
 ```
 
-```{r}
+```{r, out.width="80%", fig.align = "center"}
 # Calcular a densidade observada
 densidade_observada <- density(cancer$count)
+df_observada <- data.frame(x = densidade_observada$x, y = densidade_observada$y)
+
 
 # Plotar o gráfico
 ggplot() +
@@ -44,7 +46,7 @@ ggplot() +
   theme_minimal()
 ```
 
-```{r}
+```{r, out.width="80%", fig.align = "center"}
 b1 <- ggplot(cancer, aes(x = region, y = count, fill = region)) +
   geom_boxplot(alpha = 0.7) +  # Box plot com transparência 0.7
   labs(title = " ",
@@ -80,6 +82,7 @@ print(combined_plot)
 ```{r}
 library(knitr)
 library(kableExtra)
+library(flextable)
 # Mostrando superdispersão
 var_mpg <- cancer$count
 
@@ -89,9 +92,11 @@ stats_mpg <- data.frame(
   Valor = c(mean(var_mpg), var(var_mpg))
 )
 
-# Exibindo a tabela estilizada
-kable(stats_mpg, caption = "Média e Variância do número de casos de câncer'", 
-      format = "html") 
+# Criando a tabela estilizada com flextable
+flextable(stats_mpg) %>%
+  set_caption("Média e Variância da variável 'mpg'") %>%
+  colformat_num(j = 2, digits = 2) %>%
+  autofit()
 ```
 
 
