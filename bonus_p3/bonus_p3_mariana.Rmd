@@ -109,11 +109,16 @@ A variável `population` não foi incluída no modelo, por ter variãncia extram
 library(MASS)
 
 # Modelo binomial negativo com função de ligação canônica
-modelo_bn <- gglm.nb(count ~ gender + region + site + population, 
+modelo_bn <- glm.nb(count ~ gender + region + site + population, 
+                    data = cancer, link = "log")
+
+modelo2 <- glm.nb(count ~ gender*site + region + population, 
                     data = cancer, link = "log")
 
 # Obtendo o desvio do modelo
-deviance(modelo_log)
+options(scipen = 999)
+deviance(modelo_bn)
+deviance(modelo2)
 
 ```
 A função de ligação log é a mais comum e apropriada para modelos de contagem, como o binomial negativo, pois garante que os valores preditos sejam sempre positivos, o que faz sentido para variáveis de contagem. A função de ligação logit não é apropriada para variáveis de contagem, pois assume que a variável resposta está no intervalo (0, 1). A função de ligação probit é usada para respostas binárias ou proporcionais, assim como o logit. A função de ligação Complementay Log Log apresenta os mesmos problemas que a logit e probit. As funções de ligação identidade e raíz quadrática podem ser usadas para dados de contagem, porém não encontraram uma combinação de coeficientes válidos para ajuste do modelo. Assim, a única alterntiva foi a logarítmica.
@@ -185,6 +190,42 @@ plot(residuos_obs_ord, type = "n", ylim = range(c(envelope_inf_ord, envelope_sup
 
 ```
 
+```{r}
+residuos_obs <- residuals(modelo2, type = "pearson")
+
+# Valores ajustados
+mu <- predict(modelo2, type = "response")
+# Estimar o parâmetro de dispersão theta
+theta <- modelo2$theta  
+  
+# Simulação dos resíduos
+n <- length(mu)
+residuos_sim <- matrix(NA, nrow = n, ncol = 100)
+  
+for (i in 1:100) {
+    y_sim <- rnbinom(n, mu = mu, size = theta)  # Simula novos dados
+    modelo_sim <- glm.nb(y_sim ~ gender*site + region + population, 
+                       data = cancer)
+    residuos_sim[, i] <- residuals(modelo_sim, type = "pearson")
+  }
+  
+# Calcular intervalos de confiança (95%)
+envelope_inf <- apply(residuos_sim, 1, quantile, probs = 0.025)
+envelope_sup <- apply(residuos_sim, 1, quantile, probs = 0.975)
+  
+# Ordenar resíduos observados e esperados
+ordem <- order(residuos_obs)
+residuos_obs_ord <- residuos_obs[ordem]
+envelope_inf_ord <- envelope_inf[ordem]
+envelope_sup_ord <- envelope_sup[ordem]
+  
+# Gráfico de envelope
+plot(residuos_obs_ord, type = "n", ylim = c(-2, 2),
+       main = "Gráfico de Envelope", xlab = "Ordem dos Resíduos", ylab = "Resíduos de Pearson")
+  polygon(c(1:n, n:1), c(envelope_sup_ord, rev(envelope_inf_ord)), col = "lightgray", border = NA)
+  lines(residuos_obs_ord, type = "b", pch = 16, col = "blue")
+  abline(h = 0, col = "red", lty = 2)
+```
 
 
 
