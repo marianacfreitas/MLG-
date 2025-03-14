@@ -17,36 +17,143 @@ knitr::opts_chunk$set(echo = FALSE, message = F, warning = F)
 
 ## Análise Descritiva
 
+Para fazer uma de análise de dados completa, é necessário primeiro fazer uma análise descritiva dos dados, a fim de melhor compreender a sua natureza e, então, encontrar também um modelo adequado para descrever o conjunto de dados. A seguir, temos a apresentação de medidas de resumo para ambas as variáveis quantitativas e qualitativas relacionadas ao número de casos de câncer.
+
 ```{r}
 #Carregando os dados
 library(GLMsData)
 library(janitor)
 library(ggplot2)
 library(MASS)
+library(dplyr)
+library(tidyverse)
+library(patchwork)
+library(flextable)
 
 data(ccancer)
 cancer <- ccancer |> clean_names()
 
-summary_table <- summary(cancer)
-knitr::kable(summary_table, caption = "Resumo estatístico do dataset ccancer")
+resumo_quantitativas_flex <- function(df, variaveis) {
+  df %>%
+    select(all_of(variaveis)) %>%
+    summarise(across(everything(), list(
+      Média = mean,
+      Mediana = median,
+      Desvio_Padrão = sd,
+      Mínimo = min,
+      Q1 = ~quantile(.x, 0.25),
+      Q3 = ~quantile(.x, 0.75),
+      Máximo = max
+    ))) %>%
+    pivot_longer(everything(), names_to = c("Variável", "Métrica"), names_sep = "_") %>%
+    pivot_wider(names_from = "Métrica", values_from = "value") %>%
+    flextable() %>%
+    set_header_labels(
+      Variável = "Variável",
+      Média = "Média",
+      Mediana = "Mediana",
+      Desvio_Padrão = "Desvio Padrão",
+      Mínimo = "Mínimo",
+      Q1 = "1º Quartil",
+      Q3 = "3º Quartil",
+      Máximo = "Máximo"
+    ) %>%
+    colformat_num(j = 2:8, digits = 2) %>%
+    theme_vanilla() %>%
+    autofit() 
+}
+
+resumo_quantitativas_flex(rename(cancer, `Número de casos de câncer` = count, `População` = population), c("Número de casos de câncer","População"))
+
+
+# Função para resumo de variáveis qualitativas usando flextable
+
+resumo_gender <- cancer |>
+  mutate(contador = 1)|>
+  group_by(gender) |>
+  summarise(
+    n = sum(contador),
+    porc = sum(contador)/nrow(cancer)
+  ) |>
+  mutate(
+    Categoria = case_when(
+      gender == "M" ~ "Gênero: Masculino",
+      gender == "F" ~ "Gênero: Femino"
+    )
+  ) |> select(-c(gender))
+  
+
+resumo_site <- cancer |>
+  mutate(contador = 1)|>
+  group_by(site) |>
+  summarise(
+    n = sum(contador),
+    porc = sum(contador)/nrow(cancer)
+  ) |>
+  mutate(
+    Categoria = case_when(
+      site == "Lung" ~ "Local do câncer: Pulmão",
+      site == "Colorectal" ~ "Local do câncer: Colo retal",
+      site == "Breast" ~ "Local do câncer: Mama",
+      site == "Prostate" ~ "Local do câncer: Próstata",
+      site == "Pancreas" ~ "Local do câncer: Pâncreas"
+    )
+  ) |> select(-c(site))
+
+resumo_region <- cancer |>
+  mutate(contador = 1)|>
+  group_by(region) |>
+  summarise(
+    n = sum(contador),
+    porc = sum(contador)/nrow(cancer)
+  ) |>
+  mutate(
+    Categoria = case_when(
+      region == "Ontario" ~ "Região: Ontário",
+      region == "Newfoundland" ~ "Região: Newfoundland",
+      region == "Quebec" ~ "Região: Quebec"
+    )
+  ) |> select(-c(region))
+
+resumo <- bind_rows(
+  resumo_gender,
+  resumo_site,
+  resumo_region
+)
+
+# Criar a tabela com flextable
+tabela <- flextable(resumo) %>%
+  set_header_labels(
+    Categoria = "Categoria",
+    n = "Contagem",
+    Proporcao = "Proporção (%)"
+  ) %>%
+  theme_vanilla() %>%
+  autofit()
+
+tabela
+
 
 ```
 
-```{r, out.width="80%", fig.align = "center"}
-# Calcular a densidade observada
-densidade_observada <- density(cancer$count)
-df_observada <- data.frame(x = densidade_observada$x, y = densidade_observada$y)
+A partir da primeira tabela, é possível notar que o número de casos de câncer apresenta um alto desvio em comparação com a média, com 25% das contagens abaixo ou igual a 31.25 e 25% acima de 1212.5. Já a população ainda apresenta desvio alto, porém menor que a média, sendo que 25% dos dados tem população entre 533,800 e 25% acima de 11,874,400.0.  Na segunda tabela observamos que todas as variáveis quantitativas do conjunto de dados apresentam o mesmo número de observações por nível do fator.
 
+A seguir, foi criado um gráfico de densidade para a variável de interesse, número de casos de câncer, a fim de melhor identificar um modelo adequado para os dados.
 
-# Plotar o gráfico
-ggplot() +
-  geom_line(data = df_observada, aes(x = x, y = y), color = "blue", size = 0.5) +
-  labs(x = "Número de Casos de Câncer",
-       y = "Densidade") +
+```{r}
+ggplot(cancer, aes(x = count)) +
+  geom_density(fill = "violet", alpha = 0.5, color = "violet") +
+  labs(
+    title = "Gráfico de Densidade do Número de Casos de Cãncer",
+    x = "Número de Casos de Câncer",
+    y = "Densidade"
+  ) +
   theme_minimal()
 ```
 
-```{r, out.width="80%", fig.align = "center"}
+A curva de densidade nos mostra que a distribuição apresenta uma assimetria à direita, que pode indicar que há uma presença de pequena concentração das observações em valores mais baixos, mas há também a presença de valores mais altos e alguns possíveis *outliers*, responsáveis pela longa cauda à direita. O gráfico condiz com a alta variabilidde dos dados de contagem mostrada nas anteriormente ao apresentar as medidas resumo da contagem.
+
+```{r}
 b1 <- ggplot(cancer, aes(x = region, y = count, fill = region)) +
   geom_boxplot(alpha = 0.7) +  # Box plot com transparência 0.7
   labs(title = " ",
@@ -77,6 +184,20 @@ b3 <- ggplot(cancer, aes(x = site, y = count, fill = site)) +
 library(patchwork)
 combined_plot <- (b1 + b2) / (b3)
 print(combined_plot)
+
+# Criar o gráfico de dispersão com reta de regressão
+ggplot(cancer, aes(x = population, y = count)) +
+  geom_point(color = "black", alpha = 0.6) +  # Gráfico de dispersão
+  geom_smooth(method = "lm", color = "grey", se = F) +  # Reta de regressão
+  labs(
+    title = "Gráfico de Dispersão com Reta de Regressão",
+    x = "População",
+    y = "Número de Casos de Câncer"
+  ) +
+  theme_minimal()
+
+ # Teste de significância da correlação de Pearson
+cor.test(cancer$count, ccancer$Population, method = "pearson")
 ```
 
 ```{r}
@@ -101,8 +222,6 @@ flextable(stats_mpg) %>%
 
 
 ## Ajuste do modelo
-
-A variável `population` não foi incluída no modelo, por ter variãncia extramente baixa
 
 ```{r}
 
@@ -141,91 +260,90 @@ fit2 <- glm.nb(count ~ gender + region + site,
 fit3 <- glm.nb(count ~ gender + region + site + population, 
                     data = cancer, link = "log")
 
-anova(fit0, fit1, fit2, fit3)
+fit4 <- glm.nb(count ~ gender*site + region + population, 
+                    data = cancer, link = "log")
+
+anova(fit0, fit1, fit2, fit3, fit4)
 ```
 
 ```{r}
 # Interpretação dos coeficientes do modelo
-coefficients(modelo_bn)
+coefficients(modelo2)
 ```
 
+## Análise de resíduos
+
 ```{r}
-# Gráfico de envelope
+# Carregar pacotes necessários
+library(MASS)  # Para ajustar o modelo binomial negativo
+library(car)   # Para gerar envelopes simulados
 
-# Resíduos observados
-residuos_obs <- residuals(modelo_bn, type = "pearson")
+# Simular dados para um modelo binomial negativo
+set.seed(2402)
+n <- 100
+x <- rnorm(n)
+y <- rnbinom(n, size = modelo2$theta, mu = fitted(modelo2))  # Gerando dados de contagem
 
-# Valores ajustados
-mu <- predict(modelo_bn, type = "response")
-# Estimar o parâmetro de dispersão theta
-theta <- modelo_bn$theta  
-  
-# Simulação dos resíduos
-n <- length(mu)
-residuos_sim <- matrix(NA, nrow = n, ncol = 100)
-  
-for (i in 1:100) {
-    y_sim <- rnbinom(n, mu = mu, size = theta)  # Simula novos dados
-    modelo_sim <- glm.nb(y_sim ~ gender + region + site + population, 
-                       data = cancer)
-    residuos_sim[, i] <- residuals(modelo_sim, type = "pearson")
-  }
-  
-# Calcular intervalos de confiança (95%)
-envelope_inf <- apply(residuos_sim, 1, quantile, probs = 0.025)
-envelope_sup <- apply(residuos_sim, 1, quantile, probs = 0.975)
-  
-# Ordenar resíduos observados e esperados
-ordem <- order(residuos_obs)
-residuos_obs_ord <- residuos_obs[ordem]
-envelope_inf_ord <- envelope_inf[ordem]
-envelope_sup_ord <- envelope_sup[ordem]
-  
-# Gráfico de envelope
-plot(residuos_obs_ord, type = "n", ylim = range(c(envelope_inf_ord, envelope_sup_ord)), 
-       main = "Gráfico de Envelope", xlab = "Ordem dos Resíduos", ylab = "Resíduos de Pearson")
-  polygon(c(1:n, n:1), c(envelope_sup_ord, rev(envelope_inf_ord)), col = "lightgray", border = NA)
-  lines(residuos_obs_ord, type = "b", pch = 16, col = "blue")
-  abline(h = 0, col = "red", lty = 2)
+# Ajustar o modelo binomial negativo
+modelo2 <- glm.nb(count ~ gender*site + region + population, link = log,
+                  data = cancer)
+
+# Função para gerar envelopes simulados
+qqPlot(residuals(modelo2, type = "deviance"), 
+        main = "", 
+        xlab = "Percentil da N(0,1)", 
+        ylab = "Componente do Desvio")
 
 ```
 
 ```{r}
-residuos_obs <- residuals(modelo2, type = "pearson")
+fit.model <- modelo2
 
-# Valores ajustados
-mu <- predict(modelo2, type = "response")
-# Estimar o parâmetro de dispersão theta
-theta <- modelo2$theta  
-  
-# Simulação dos resíduos
-n <- length(mu)
-residuos_sim <- matrix(NA, nrow = n, ncol = 100)
-  
-for (i in 1:100) {
-    y_sim <- rnbinom(n, mu = mu, size = theta)  # Simula novos dados
-    modelo_sim <- glm.nb(y_sim ~ gender*site + region + population, 
-                       data = cancer)
-    residuos_sim[, i] <- residuals(modelo_sim, type = "pearson")
-  }
-  
-# Calcular intervalos de confiança (95%)
-envelope_inf <- apply(residuos_sim, 1, quantile, probs = 0.025)
-envelope_sup <- apply(residuos_sim, 1, quantile, probs = 0.975)
-  
-# Ordenar resíduos observados e esperados
-ordem <- order(residuos_obs)
-residuos_obs_ord <- residuos_obs[ordem]
-envelope_inf_ord <- envelope_inf[ordem]
-envelope_sup_ord <- envelope_sup[ordem]
-  
-# Gráfico de envelope
-plot(residuos_obs_ord, type = "n", ylim = c(-2, 2),
-       main = "Gráfico de Envelope", xlab = "Ordem dos Resíduos", ylab = "Resíduos de Pearson")
-  polygon(c(1:n, n:1), c(envelope_sup_ord, rev(envelope_inf_ord)), col = "lightgray", border = NA)
-  lines(residuos_obs_ord, type = "b", pch = 16, col = "blue")
-  abline(h = 0, col = "red", lty = 2)
+X <- model.matrix(fit.model)
+n <- nrow(X)
+p <- ncol(X)
+w <- fit.model$weights
+W <- diag(w)
+H <- MASS::ginv(t(X)%*%W%*%X)
+#H <- solve(t(X)%*%W%*%X)
+H <- sqrt(W)%*%X%*%H%*%t(X)%*%sqrt(W)
+h <- diag(H)
+ts <- resid(fit.model,type="pearson")/sqrt(1-h)
+td <- resid(fit.model,type="deviance")/sqrt(1-h)
+di <- (h/(1-h))*(ts^2)
+a <- min(td)
+b <- max(td)
+plot(fitted(fit.model), h,xlab="Valor Ajustado", ylab="Medida h",
+pch=16)
+#identify(fitted(fit.model), h, n=3)
 ```
+
+```{r}
+plot(di,xlab="Índice", ylab="Distância de Cook",
+pch=16)
+#identify(di, n=1)
+```
+
+```{r}
+plot(td,xlab="Índice", ylab="Resíduo Componente do Desvio",
+ylim=c(a-1,b+1), pch=16)
+abline(2,0,lty=2)
+abline(-2,0,lty=2)
+#identify(td, n=1)
+```
+
+```{r}
+w <- fit.model$weights
+eta <- predict(fit.model)
+z <- eta + resid(fit.model, type="pearson")/sqrt(w)
+plot(predict(fit.model),z,xlab="Preditor Linear", 
+ylab="Variavel z", pch=16)
+lines(smooth.spline(predict(fit.model), z, df=2))
+```
+
+
+
+
 
 
 

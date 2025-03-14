@@ -1,0 +1,115 @@
+---
+title: "Modelos Lineares Generalizados - Prova 1"
+author: "Mariana Costa Freitas"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Questão 4
+
+### a) Ajuste um modelo comparando a ligação canônica com pelo menos mais uma função de ligação. Qual é o modelo mais adequado? Explique detalhadamente suas análises.
+
+Como, nesse caso, queremos modelar a variável resposta `Count`, que representa a contagem do número de mortes por câncer em três regiões do Canadá, vamos usar o modelo Poisson, que trata de contagens, cuja função de ligação canônica é $\theta = log(\mu)$. Para fazer a comparação com outra função de ligação, vamos usar $\theta_2 = \frac{1}{\mu^2}$.
+
+A seguir, vamos elaborar os modelos com essas duas funções de ligação usando a função `glm()` e alterando as funções de ligação usando o argumento `link`.
+
+```{r}
+#Carregando os pacotes utilizados
+library(GLMsData)
+
+#Carregando os dados
+data(ccancer)
+
+# Ajuste do modelo com a ligação log (canônica)
+modelo_log <- glm(Count ~ Gender + Region + Site + Population, 
+                  data = ccancer, 
+                  family = poisson(link = "log"))
+summary(modelo_log)
+
+# Ajuste do modelo com outra ligação
+modelo_inversa_2 <- glm(Count ~ Gender + Region + Site + Population, 
+                       data = ccancer, 
+                       family = poisson(link = "1/mu^2"))
+summary(modelo_inversa_2)
+```
+
+A partir desses outputs, podemos observar as estimativas para o intercepto e para os coeficientes associados a cada variável explicativa. Porém, é importante notar que a variável `Population` foi removida em ambos os modelos, pois apresenta colinearidade, ou seja, essa é altamente correlacionada com outras variáveis explicativas ou mesmo com a variável resposta. Além disso, todas as outras variáveis tem um p-valor pequeno, indicando então que são importantes no modelo.
+
+Para definir o modelo mais adequado, precisamos analisar o ajuste do modelo (residual deviance) para cada um e também as medidas do AIC e BIC, que quanto mais baixos geralmente indicam o modelo melhor ajustado. Já temos as medidas do ajuste dos modelos e do AIC, que foram apresentados no output acima e ambos são mais baixos no modelo que usa a função de ligação canônica, mostrando que esse é o mais adequado. Abaixo, apresentamos as medidas do BIC para ambos os modelos, o que reforça que o modelo que melhor se ajusta aos dados é o modelo de função de ligação canônica.
+
+```{r}
+BIC(modelo_log, modelo_inversa_2)
+
+```
+
+### b) Considerando o melhor modelo obtido no item anterior, realize a análise dos desvios e interprete detalhadamente cada passo.
+
+A análise dos desvios nos permite avaliar o quão bem o modelo ajusta os dados. A função desvio indica a diferença entre o modelo ajustado e um modelo saturado. Quanto menor o desvio, melhor o ajuste. Abaixo, vamos obter essa medida usando a função `deviance()`.
+
+```{r}
+# Obtendo o desvio do modelo
+deviance(modelo_log)
+
+```
+
+Para nos aprofundar melhor, podemos ainda usar a função `anova()` para avaliar a contribuição de cada variável explicativa para a diminuição do desvio.
+
+O modelo `fit0`abaixo representa o modelo apenas com o intercepto, `fit1`, apresenta apenas a variável `Gender` como explicativa, `fit2`inclui `Region`e `fit3`inclui `Site`.
+
+```{r}
+fit0 <- glm(Count ~ 1, 
+                  data = ccancer, 
+                  family = poisson(link = "log"))
+
+fit1 <- glm(Count ~ Gender, 
+                  data = ccancer, 
+                  family = poisson(link = "log"))
+
+fit2 <- glm(Count ~ Gender + Region, 
+                  data = ccancer, 
+                  family = poisson(link = "log"))
+
+fit3 <- glm(Count ~ Gender + Region + Site, 
+                  data = ccancer, 
+                  family = poisson(link = "log"))
+
+```
+
+Agora, vamos usar `anova()` para avaliar os efeitos das variáveis.
+
+```{r}
+anova(fit0, fit1)
+```
+Podemos observar que a adição da variável `Gender` causou uma diminuição de 150 (35187 - 35037) no desvio e diminui também em um grau de liberdade.
+
+```{r}
+anova(fit1, fit2)
+```
+A adição da variável `Region`dado que `Gender`já estava presente no modelo representou uma grande diminuição de 14858 no desvio e de 2 graus de liberdade.
+
+```{r}
+anova(fit2, fit3)
+```
+Já a adição da variável `Site`dado que `Gender`e `Region`já estavam presentes, ocasionou uma diminuição ainda maior de 10803.1 no desvio e 4 graus de liberdade.
+
+### c) Interprete o modelo final ajustado e explique o critério de seleção usado.
+
+Vamos interpretar os coeficientes do modelo escolhido abaixo:
+
+```{r}
+modelo_log$coefficients
+```
+
+Cada coeficiente indica a mudança na taxa de mortes. Assim, a partir dos coeficientes,podemos observar que homens têm uma taxa de mortalidade maior que mulheres, Ontário e Quebec têm taxas de mortalidade por câncer mais altas que Newfoundland, o câncer de pulmão tem a maior taxa de mortalidade, seguido de câncer colorretal e o câncer de pâncreas tem a menor taxa de mortalidade.
+
+Para selecionar o melhor modelo, usamos as medidas de AIC, BIC e de desvio, que se mostraram serem mais baixas para o modelo que usa função de ligação logarítmica.
+
+
+
+
+
+
