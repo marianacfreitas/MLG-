@@ -153,6 +153,8 @@ ggplot(cancer, aes(x = count)) +
 
 A curva de densidade nos mostra que a distribuição apresenta uma assimetria à direita, que pode indicar que há uma presença de pequena concentração das observações em valores mais baixos, mas há também a presença de valores mais altos e alguns possíveis *outliers*, responsáveis pela longa cauda à direita. O gráfico condiz com a alta variabilidde dos dados de contagem mostrada nas anteriormente ao apresentar as medidas resumo da contagem.
 
+Outra importante análise inicial, é observar como a variável de interesse, no caso, número de casos de câncer, se comporta em diferentes níveis ou valores do restante das variáveis. A seguir, os boxplots indicam essa relação de acordo com as variáveis qualitativas e o gráfico de dispersão com a única variável quantitativa, população. 
+
 ```{r}
 b1 <- ggplot(cancer, aes(x = region, y = count, fill = region)) +
   geom_boxplot(alpha = 0.7) +  # Box plot com transparência 0.7
@@ -175,7 +177,7 @@ b2 <- ggplot(cancer, aes(x = gender, y = count, fill = gender)) +
 b3 <- ggplot(cancer, aes(x = site, y = count, fill = site)) +
   geom_boxplot(alpha = 0.7) +  # Box plot com transparência 0.7
   labs(title = " ",
-       x = "Região",
+       x = "Local afetado",
        y = "Número de Casos",
        fill = "Local afetado") +
   theme_minimal() +
@@ -185,20 +187,35 @@ library(patchwork)
 combined_plot <- (b1 + b2) / (b3)
 print(combined_plot)
 
+options(scipen = 999)
+
 # Criar o gráfico de dispersão com reta de regressão
 ggplot(cancer, aes(x = population, y = count)) +
   geom_point(color = "black", alpha = 0.6) +  # Gráfico de dispersão
-  geom_smooth(method = "lm", color = "grey", se = F) +  # Reta de regressão
   labs(
     title = "Gráfico de Dispersão com Reta de Regressão",
     x = "População",
     y = "Número de Casos de Câncer"
   ) +
   theme_minimal()
-
- # Teste de significância da correlação de Pearson
-cor.test(cancer$count, ccancer$Population, method = "pearson")
 ```
+
+```{r}
+options(scipen = 999)
+
+# Criar o gráfico de dispersão com reta de regressão
+ggplot(cancer, aes(x = population, y = count)) +
+  geom_point(color = "black", alpha = 0.6) +  # Gráfico de dispersão
+  labs(
+    title = "Gráfico de Dispersão com Reta de Regressão",
+    x = "População",
+    y = "Número de Casos de Câncer"
+  ) +
+  theme_minimal()
+```
+
+
+Analisando com base na região, notamos que Newfoundland apresenta uma média de casos de câncer extremamente baixa e variância também do número de casos de câncer bem baixa também; já Ontario e Quebec apresentam média do número de casos parecida, porém Ontario apresenta terceiro quartil mais alto e variãncia também mais elevada. Em relação ao gênero, as medidas do número de casos por gênero é bem parecida, com média e quartis bem próximos. Quanto ao local afetado pelo câncer, a maioria dos locais tem variabilidade baixa e quartis próximos, exceto o local Pulmão, com alta média e variabilidade quando comparada a outros grupos.
 
 ```{r}
 library(knitr)
