@@ -1,7 +1,7 @@
 ---
-title: "Bônus - Prova 3"
+title: "Modelos Lineares Generalizados: Aplicação a Dados de Câncer"
 author: "Mariana Costa Freitas"
-date: "`r Sys.Date()`"
+date: " "
 output: pdf_document
 ---
 
@@ -11,13 +11,57 @@ knitr::opts_chunk$set(echo = FALSE, message = F, warning = F)
 
 # Introdução
 
+O trabalho a seguir tem como objetivo ajustar modelos estatísticos para estimar o número de óbitos por câncer em diferentes regiões do Canadá, considerando os fatores de gênero, local do câncer e população da região.
+
+O conjunto de dados utilizado, ccancer, contém informações sobre o número estimado de mortes por câncer em 2000 para as províncias de Ontário, Newfoundland e Quebec. O banco de dados apresenta 30 observações e cinco variáveis:
+
++ Count: número estimado de óbitos para um determinado tipo de câncer;
+
++ Gender: gênero dos pacientes (Feminino ou Masculino);
+
++ Region: região onde o óbito foi registrado (Ontário, Newfoundland ou Quebec);
+
++ Site: local do câncer (Pulmão, Colorretal, Mama, Próstata ou Pâncreas);
+
++ Population: população estimada da região em 2000/2001.
+
+
 # Metodologia
+
+A análise dos dados foi realizada por meio de modelos lineares generalizados (MLGs), uma extensão dos modelos de regressão linear que permite a modelagem de variáveis resposta que seguem distribuições distintas da normal. Os MLGs são definidos pela relação: $g(E[Y]) = X\beta$, onde  $g(.)$ é a função de ligação,  $E[Y]$ é o valor esperado da variável resposta,  $X$ é a matriz de covariáveis e  $\beta$ é o vetor de parâmetros a ser estimado.
+
+Dado que o número de óbitos por câncer é uma variável de contagem, inicialmente consideramos a modelagem utilizando a distribuição de Poisson, cuja função de massa de probabilidade é dada por:
+
+$$
+P(Y = y) = \frac{e^{-\lambda} \lambda^y}{y!}, \quad y = 0, 1, 2, \dots
+$$
+
+onde  $\lambda$ representa o valor esperado da variável resposta. No entanto, a distribuição de Poisson assume que a variância é igual à média, o que pode não ser adequado caso haja superdispersão nos dados.
+
+Para lidar com esse problema, consideramos o modelo Binomial Negativo, que também é apropriado para dados de contagem e permite a presença de superdispersão. A função de massa de probabilidade da distribuição Binomial Negativa é:
+
+$$
+P(Y = y) = \frac{\Gamma(y + \theta)}{y! \Gamma(\theta)} \left(\frac{\mu}{\mu + \theta}\right)^y \left(\frac{\theta}{\mu + \theta}\right)^\theta,
+$$
+
+onde $\mu$ é a média da variável resposta e  $\theta$ é o parâmetro de dispersão.
+
+Após a seleção do modelo mais adequado, foi realizada uma avaliação de ajuste por meio da análise de resíduos. Foram utilizados:
+
++ Resíduos de Pearson, que verificam discrepâncias entre os valores observados e ajustados;
+
++ Medida H, que avalia a influência de cada observação no ajuste do modelo;
+
++ Distância de Cook, que identifica observações influentes;
+
++ Análises gráficas, incluindo gráficos de resíduos padronizados e envelopes simulados para verificar a adequação do modelo.
+
 
 # Análise dos dados
 
 ## Análise Descritiva
 
-Para fazer uma de análise de dados completa, é necessário primeiro fazer uma análise descritiva dos dados, a fim de melhor compreender a sua natureza e, então, encontrar também um modelo adequado para descrever o conjunto de dados. A seguir, temos a apresentação de medidas de resumo para ambas as variáveis quantitativas e qualitativas relacionadas ao número de casos de câncer.
+Para escolher um vom modelo inicial, é necessário primeiro fazer uma análise descritiva dos dados, a fim de melhor compreender a sua natureza e, então, encontrar também um modelo adequado para descrever o conjunto de dados. A seguir, temos a apresentação de medidas de resumo para ambas as variáveis quantitativas e qualitativas relacionadas ao número de casos de câncer.
 
 ```{r}
 #Carregando os dados
@@ -60,7 +104,8 @@ resumo_quantitativas_flex <- function(df, variaveis) {
     ) %>%
     colformat_num(j = 2:8, digits = 2) %>%
     theme_vanilla() %>%
-    autofit() 
+    #autofit() |>
+    fit_to_width(max_width = 10)
 }
 
 resumo_quantitativas_flex(rename(cancer, `Número de casos de câncer` = count, `População` = population), c("Número de casos de câncer","População"))
@@ -73,7 +118,7 @@ resumo_gender <- cancer |>
   group_by(gender) |>
   summarise(
     n = sum(contador),
-    porc = sum(contador)/nrow(cancer)
+    porc = round(sum(contador)/nrow(cancer), 2)
   ) |>
   mutate(
     Categoria = case_when(
@@ -88,7 +133,7 @@ resumo_site <- cancer |>
   group_by(site) |>
   summarise(
     n = sum(contador),
-    porc = sum(contador)/nrow(cancer)
+    porc = round(sum(contador)/nrow(cancer), 2)
   ) |>
   mutate(
     Categoria = case_when(
@@ -105,7 +150,7 @@ resumo_region <- cancer |>
   group_by(region) |>
   summarise(
     n = sum(contador),
-    porc = sum(contador)/nrow(cancer)
+    porc = round(sum(contador)/nrow(cancer), 2)
   ) |>
   mutate(
     Categoria = case_when(
@@ -126,7 +171,7 @@ tabela <- flextable(resumo) %>%
   set_header_labels(
     Categoria = "Categoria",
     n = "Contagem",
-    Proporcao = "Proporção (%)"
+    porc = "Proporção (%)"
   ) %>%
   theme_vanilla() %>%
   autofit()
@@ -136,11 +181,11 @@ tabela
 
 ```
 
-A partir da primeira tabela, é possível notar que o número de casos de câncer apresenta um alto desvio em comparação com a média, com 25% das contagens abaixo ou igual a 31.25 e 25% acima de 1212.5. Já a população ainda apresenta desvio alto, porém menor que a média, sendo que 25% dos dados tem população entre 533,800 e 25% acima de 11,874,400.0.  Na segunda tabela observamos que todas as variáveis quantitativas do conjunto de dados apresentam o mesmo número de observações por nível do fator.
+A partir da primeira tabela, é possível notar que o número de casos de câncer apresenta um alto desvio em comparação com a média, com 25% das contagens abaixo ou igual a 31.25 e 25% acima de 1212.5. Já a população ainda apresenta desvio alto, porém menor que a média, sendo que 25% dos dados têm população entre 533,800 e 25% acima de 11,874,400.0.  Na segunda tabela, observamos que todas as variáveis quantitativas do conjunto de dados apresentam o mesmo número de observações por nível do fator.
 
 A seguir, foi criado um gráfico de densidade para a variável de interesse, número de casos de câncer, a fim de melhor identificar um modelo adequado para os dados.
 
-```{r}
+```{r, out.width= "80%", fig.align='center'}
 ggplot(cancer, aes(x = count)) +
   geom_density(fill = "violet", alpha = 0.5, color = "violet") +
   labs(
@@ -151,11 +196,11 @@ ggplot(cancer, aes(x = count)) +
   theme_minimal()
 ```
 
-A curva de densidade nos mostra que a distribuição apresenta uma assimetria à direita, que pode indicar que há uma presença de pequena concentração das observações em valores mais baixos, mas há também a presença de valores mais altos e alguns possíveis *outliers*, responsáveis pela longa cauda à direita. O gráfico condiz com a alta variabilidde dos dados de contagem mostrada nas anteriormente ao apresentar as medidas resumo da contagem.
+A curva de densidade nos mostra que a distribuição apresenta uma assimetria à direita, que pode indicar que há uma concentração das observações em valores mais baixos, mas há também a presença de valores mais altos e alguns possíveis *outliers*, responsáveis pela longa cauda à direita. O gráfico condiz com a alta variabilidde dos dados de contagem mostrada anteriormente ao apresentar as medidas resumo.
 
 Outra importante análise inicial, é observar como a variável de interesse, no caso, número de casos de câncer, se comporta em diferentes níveis ou valores do restante das variáveis. A seguir, os boxplots indicam essa relação de acordo com as variáveis qualitativas e o gráfico de dispersão com a única variável quantitativa, população. 
 
-```{r}
+```{r, out.width= "90%", fig.align='center'}
 b1 <- ggplot(cancer, aes(x = region, y = count, fill = region)) +
   geom_boxplot(alpha = 0.7) +  # Box plot com transparência 0.7
   labs(title = " ",
@@ -188,34 +233,28 @@ combined_plot <- (b1 + b2) / (b3)
 print(combined_plot)
 
 options(scipen = 999)
-
-# Criar o gráfico de dispersão com reta de regressão
-ggplot(cancer, aes(x = population, y = count)) +
-  geom_point(color = "black", alpha = 0.6) +  # Gráfico de dispersão
-  labs(
-    title = "Gráfico de Dispersão com Reta de Regressão",
-    x = "População",
-    y = "Número de Casos de Câncer"
-  ) +
-  theme_minimal()
 ```
 
-```{r}
+Analisando com base na região, notamos que Newfoundland apresenta uma média de casos de câncer extremamente baixa e variância do número de casos de câncer bem baixa também; já Ontario e Quebec apresentam média do número de casos parecida, porém Ontario apresenta terceiro quartil mais alto e variãncia também mais elevada. Em relação ao gênero, as medidas do número de casos para ambos os gêneros é bem parecida, com média e quartis bem próximos. Quanto ao local afetado pelo câncer, a maioria dos locais têm variabilidade baixa e quartis próximos, exceto para o local 'Pulmão', com alta média e variabilidade do número de casos quando comparada aos outros locais.
+
+
+```{r, out.width= "60%", fig.align='center'}
 options(scipen = 999)
 
-# Criar o gráfico de dispersão com reta de regressão
+# Criar o gráfico de dispersão
 ggplot(cancer, aes(x = population, y = count)) +
   geom_point(color = "black", alpha = 0.6) +  # Gráfico de dispersão
   labs(
-    title = "Gráfico de Dispersão com Reta de Regressão",
+    title = "Gráfico de Dispersão",
     x = "População",
     y = "Número de Casos de Câncer"
   ) +
   theme_minimal()
 ```
 
+Como estamos avaliando o número de casos em três regiões, Ontario, Newfoundland e Quebec, temos apenas três valores distintos para a população no eixo X, enquanto o número de casos se distribui no eixo Y. É possível observar que, para o menor valor de população, o numero de casos se concentra em valores bem pequenos, e conforme a população aumenta, a variabilidade do número de casos aumenta, apresentando tanto valores altos e baixos, mas se concentrando um pouco mais em valores medianos.
 
-Analisando com base na região, notamos que Newfoundland apresenta uma média de casos de câncer extremamente baixa e variância também do número de casos de câncer bem baixa também; já Ontario e Quebec apresentam média do número de casos parecida, porém Ontario apresenta terceiro quartil mais alto e variãncia também mais elevada. Em relação ao gênero, as medidas do número de casos por gênero é bem parecida, com média e quartis bem próximos. Quanto ao local afetado pelo câncer, a maioria dos locais tem variabilidade baixa e quartis próximos, exceto o local Pulmão, com alta média e variabilidade quando comparada a outros grupos.
+A análise descritiva das variáveis é importante na escolha do modelo mais adequado aos dados, visto que nos ajuda a melhor compreender a distribuição, a relação entre as variáveis e as características dos dados, o que é necessário para selecionar a família de distribuição e a função de ligação corretas. A nossa variável de interesse aqui, número de casos de câncer, representa uma contagem, situação em que, em geral, é utilizada uma distribuição Poisson ou uma distribuição Binomial Negativa. Para decidir qual será usada nesse caso, precisamos verificar se o pressuposto de Poissson de média igual a variância é atendido. Para isso, foi criada a tabela a seguir com as informações de média e variância para a variável de interesse.
 
 ```{r}
 library(knitr)
@@ -237,10 +276,16 @@ flextable(stats_mpg) %>%
   autofit()
 ```
 
+A partir dessas informações, inferimos que os dados apresentam sobredispersão, ou seja, a variância é muito maior que a média. Logo, não podemos usar a distribuição Poisson e vamos optar pela distribuição Binomial Negativa, que é capaz de se adequar a essa sobredispersão.
+
 
 ## Ajuste do modelo
 
-```{r}
+Decidido o modelo a ser utilizado, é hora de determinar a função de ligação para o modelo. Para modelos de contagem, a ligação logarítmica é mais comum e apropriada para modelos de contagem, pois garante que os valores preditos sejam sempre positivos; mas as funções de ligação identidade e raíz quadrática também são utilizadas para esses casos. Já as funções de ligação logito, probito e complementary log log não podem ser utilizadas para dados de contagem, pois assumem variáveis respostas binárias ou no intervalo [0,1], não sendo adequadas nesse caso.
+
+Apesar da possibilidade de usá-las para dados de contagem, quando testadas aqui, as funções de ligação identidade e raíz quadrática não encontraram uma combinação de coeficientes válidos para ajuste do modelo. Assim, foi usada a função de ligação logarítmica.
+
+```{r, include = FALSE}
 
 library(MASS)
 
@@ -248,7 +293,7 @@ library(MASS)
 modelo_bn <- glm.nb(count ~ gender + region + site + population, 
                     data = cancer, link = "log")
 
-modelo2 <- glm.nb(count ~ gender*site + region + population, 
+modelo2 <- glm.nb(count ~ gender*site + region, 
                     data = cancer, link = "log")
 
 # Obtendo o desvio do modelo
@@ -257,10 +302,8 @@ deviance(modelo_bn)
 deviance(modelo2)
 
 ```
-A função de ligação log é a mais comum e apropriada para modelos de contagem, como o binomial negativo, pois garante que os valores preditos sejam sempre positivos, o que faz sentido para variáveis de contagem. A função de ligação logit não é apropriada para variáveis de contagem, pois assume que a variável resposta está no intervalo (0, 1). A função de ligação probit é usada para respostas binárias ou proporcionais, assim como o logit. A função de ligação Complementay Log Log apresenta os mesmos problemas que a logit e probit. As funções de ligação identidade e raíz quadrática podem ser usadas para dados de contagem, porém não encontraram uma combinação de coeficientes válidos para ajuste do modelo. Assim, a única alterntiva foi a logarítmica.
 
-Population foi removida nos modelos, pois apresenta colinearidade, ou seja, essa é altamente correlacionada com outras variáveis explicativas ou mesmo com a variável resposta.
-
+A seguir, vamos testar algumas possibilidades desse modelo, testando variáveis e a interação entre elas, para verificar qual seria a melhor escolha nesse caso.
 
 ```{r}
 # Analisando como as variáveis dimunuem o desvio
@@ -279,18 +322,160 @@ fit3 <- glm.nb(count ~ gender + region + site + population,
 
 fit4 <- glm.nb(count ~ gender*site + region + population, 
                     data = cancer, link = "log")
+fit7 <- glm.nb(count ~ gender*site + region, 
+                    data = cancer, link = "log")
 
-anova(fit0, fit1, fit2, fit3, fit4)
+fit5 <- glm.nb(count ~ gender + site*region + population, 
+                    data = cancer, link = "log")
+
+fit6 <- glm.nb(count ~ gender*site*region + population, 
+                    data = cancer, link = "log")
+
+a <- anova(fit0, fit1, fit2, fit3, fit4, fit7, fit5, fit6)
 ```
+
+```{r, include = T}
+library(dplyr)
+library(flextable)
+
+desvio <- c(deviance(fit0), deviance(fit1), deviance(fit2), deviance(fit3),
+            deviance(fit4), deviance(fit7), deviance(fit5), deviance(fit6))
+
+data <- data.frame(
+  Id = c(1:8),
+  Modelo = a$Model,
+  Desvio = round(desvio, 2),
+  `GL` = as.character(a$`Resid. df`),
+  `LL` =  a$`   2 x log-lik.`
+  )
+
+# Criando a tabela estilizada com flextable
+library(flextable)
+ft <- flextable(data)|>
+  set_header_labels(
+    Id = "Id",
+    Modelo = "Modelo",
+    Desvio = "Desvio",
+    `GL` = "Graus  \n de liberdade",
+    `LL` = "2xLog-verossimilhança"  )
+
+ft <- theme_vanilla(ft)
+ft <- width(ft, j = 1, width = 0.5)  # Coluna 1 com 1.0 polegada
+ft <- width(ft, j = 2, width = 1.5)  # Coluna 1 com 1.0 polegada
+ft <- width(ft, j = 3, width = 1.2)  # Coluna 1 com 1.0 polegada
+ft <- width(ft, j = 4, width = 1.2)  # Coluna 1 com 1.0 polegada
+ft <- width(ft, j = 5, width = 2.0)  # Coluna 1 com 1.0 polegada
+
+
+
+
+ft
+
+```
+
+Na tabela acima, temos as informações das variáveis e interações que descrevem cada modelo, e suas respectivas métricas de ajuste, como o desvio, os graus de liberdade residuais e o logaritmo da verossimilhança. 
+
+O Modelo 1, que inclui apenas o intercepto, foi descartado por ser muito simples. Com um desvio de 36.87 e um logaritmo da verossimilhança de -418.0826, ele não consegue capturar a variabilidade dos dados de forma adequada. O Modelo 2, que adiciona a variável "gender", também foi descartado, pois não houve melhoria significativa no ajuste em relação ao Modelo 1, mantendo um desvio alto e um logaritmo da verossimilhança muito próximo ao anterior.
+
+Os Modelos 3 e 4, que incluem as variáveis "gender", "region", "site" e, no caso do Modelo 4, "population", apresentaram desvios extremamente altos (9375.13) e logaritmos da verossimilhança muito negativos (-9,565.9311). Esses valores indicam que esses modelos têm um ajuste muito ruim aos dados, mesmo com a inclusão de mais variáveis. Assim, ambos foram descartados.
+
+Por outro lado, o Modelo 7, que inclui a interação entre "site" e "region", além de "gender" e "population", foi descartado devido ao seu desvio muito alto (9191.16) e ao logaritmo da verossimilhança muito negativo (-9,381.9592). A complexidade adicional dessa interação não melhorou o ajuste do modelo.
+
+O Modelo 5, que inclui a interação entre "gender" e "site", além das variáveis "region" e "population", apresenta desvio de 21.95 e um logaritmo da verossimilhança de -255.7487, tendo então um ajuste significativamente melhor em comparação aos modelos anteriores. Porém, o Modelo 6, que retira a variável "population", ainda considerando a interação entre "gender" e "site", apresenta as mesmas medidas de ajuste que o Modelo 5, porém com uma variável a menos, o que diminui a complexidade do modelo, sendo então o modelo mais adequado.
+
+Já o Modelo 8, que inclui a interação tripla entre "gender", "site" e "region", além de "population", foi descartado por apresentar um desvio zero, o que sugere sobreajuste, ou seja, é inadequado para generalização e provavelmente terá um desempenho ruim em novos dados.
+
+Com o modelo já selecionado, agora vamos interpretar seus coeficientes mostrados abaixo.
 
 ```{r}
 # Interpretação dos coeficientes do modelo
-coefficients(modelo2)
+coef <- coefficients(modelo2)
+
+Coeficientes <- c(4.56, -41.71, -0.55, 0.18, -1.27, -43.56, 3.03, 2.79, 41.85, 42.29, 41.63, 84.95)
+
+`Variáveis` <- c("Intercepto", "Gênero: Masculino", "Local: Colo retal",
+                 "Local: Pulmão", "Local: Pâncreas", "Local: Próstata",
+                 "Região: Ontário", "Região: Quebec", "Interação: Masculino e Colo retal", "Interação: Masculino e Pulmão", "Interação: Masculino e Pâncreas", "Interação: Masculino e Próstata")
+
+df <- data.frame(`Variáveis`=`Variáveis`,
+                    Coeficientes = Coeficientes)
+
+flextable(df) |> theme_vanilla()
 ```
+
+O intercepto é o valor esperado da variável resposta quando todas as variáveis preditoras são iguais a zero, ou seja, quando o gênero é feminino, local do câncer é mama, e a região é Newfoundland, o logaritmo do número de casos de câncer é 4.56. Assim, o número esperado de casos de câncer nessas condições é $e^{4.56} = 95.6$. Já os coeficientes das variáveis principais indicam o efeito de cada variável, enquanto os coeficientes de interação mostram como o efeito de uma variável muda dependendo do valor de outra. 
+
+Por exemplo, o coeficiente para o local Pulmão 0.18 indica a diferença no log-odds para o local "Pulmão" em relação ao local "Mama". Um valor positivo sugere que, em comparação com o número de casos de câncer de mama, o local "Pulmão" está associado a um log-odds maior, ou seja, maior probabilidade de casos de câncer. Já no caso de uma interação, o coeficiente 41.85 representa a interação entre o gênero ser masculino e o local de câncer ser colo retal. Ele indica que o efeito de ter essas duas características é 41.8492504 unidades maior do que o efeito base delas individualmente. Seguindo o mesmo raciocínio, é possível interpretar os outros coeficientes.
 
 ## Análise de resíduos
 
-```{r}
+Escolhido o modelo, agora faremos uma análise de resíduos, com o intuito de verificar a adequação do modelo aos dados e identificar possíveis problemas. 
+
+A seguir, vamos analisar a presença de possíveis pontos de alavanca, ou seja, observações que, por possuirem valores extremos nas variáveis preditoras, têm um impacto maior no modelo do que outras observações, podendo então distorcer os resultados do modelo. Para identificá-los, vamos usar a medida H. A medida H varia entre 0 e 1, sendo que um valor de H próximo de 1 indica que a observação tem um alto potencial de alavancagem no modelo, enquanto um valor próximo de 0 indica  pouca.  Abaixo temos um gráfico de dispersão que apresenta os valores ajustados e o valor H.
+
+```{r, out.width= "80%", fig.align='center'}
+fit.model <- modelo2
+
+X <- model.matrix(fit.model)
+n <- nrow(X)
+p <- ncol(X)
+w <- fit.model$weights
+W <- diag(w)
+H <- MASS::ginv(t(X)%*%W%*%X)
+#H <- solve(t(X)%*%W%*%X)
+H <- sqrt(W)%*%X%*%H%*%t(X)%*%sqrt(W)
+h <- diag(H)
+ts <- resid(fit.model,type="pearson")/sqrt(1-h)
+td <- resid(fit.model,type="deviance")/sqrt(1-h)
+di <- (h/(1-h))*(ts^2)
+a <- min(td)
+b <- max(td)
+plot(fitted(fit.model), h,xlab="Valor Ajustado", ylab="Medida h",
+pch=16)
+#identify(fitted(fit.model), h, n=3)
+```
+
+Podemos observar que as medidas H estão bem próximas de zero, sendo que o maior valor H obtido foi pouco mais de 0.08. Assim, não identificamos pontos de alavanca.
+
+Outra métrica de ajuste importante é a Distância de Cook, utilizada para detectar observações influentes que podem estar distorcendo o modelo. Valores altos indicam que a remoção da observação do conjunto de dados causaria uma mudança significativa nas estimativas dos coeficientes do modelo.
+
+
+```{r, out.width= "80%", fig.align='center'}
+plot(di,xlab="Índice", ylab="Distância de Cook",
+pch=16)
+#identify(di, n=1)
+```
+
+Em geral, os pontos apresentaram uma baixa Distância de Cook, sugerindo que têm pouca influência no modelo. Logo, não afetam significativamente as estimativas dos coeficientes.
+
+Também vamos observar o gráfico de resíduos do componente do desvio, que mostra esses resíduos em função do índice das observações. Se o modelo estiver adequado, os resíduos devem se distribuir aleatoriamente em torno de zero.
+
+```{r, out.width= "80%", fig.align='center'}
+plot(td,xlab="Índice", ylab="Resíduo Componente do Desvio",
+ylim=c(a-1,b+1), pch=16)
+abline(2,0,lty=2)
+abline(-2,0,lty=2)
+#identify(td, n=1)
+```
+
+No gráfico, os pontos estão espalhados sem um padrão claro, sugerindo que o modelo está capturando bem a estrutura dos dados e que não há alguma tendência nos resíduos.
+
+Outra análise importante é a comparação do preditor linear com a Variável $z$, $z = \eta + \frac{\text{resíduo de Pearson}}{\sqrt{\text{pesos do modelo}}}$. O valor $z$ é útil para verificar se o modelo está bem ajustado porque, sob um bom ajuste do modelo, ele deve se alinhar com o preditor linear $\eta$.
+
+```{r, out.width= "80%", fig.align='center'}
+w <- fit.model$weights
+eta <- predict(fit.model)
+z <- eta + resid(fit.model, type="pearson")/sqrt(w)
+plot(predict(fit.model),z,xlab="Preditor Linear", 
+ylab="Variavel z", pch=16)
+lines(smooth.spline(predict(fit.model), z, df=2))
+```
+
+O gráfico sugere que o modelo se ajustou bem aos dados, já que os pontos seguem a reta de referência.
+
+Por último, vamos analisar um gráfico de envelope para o nosso modelo, que é uma versão do gráfico de quantis-quantis que inclui uma faixa de confiança simulada. Ele é utilizado para avaliar visualmente se os resíduos do modelo seguem uma distribuição teórica esperada, no caso a normal padrão. 
+
+```{r, out.width= "80%", fig.align='center'}
 # Carregar pacotes necessários
 library(MASS)  # Para ajustar o modelo binomial negativo
 library(car)   # Para gerar envelopes simulados
@@ -313,53 +498,17 @@ qqPlot(residuals(modelo2, type = "deviance"),
 
 ```
 
-```{r}
-fit.model <- modelo2
+Observamos que os resíduos estão razoavelmente alinhados com a reta, o que sugere que o modelo binomial negativo está ajustado adequadamente. Além disso, em geral, os pontos estão dentro do envelope, ou seja, não há evidências de violação da normalidade dos resíduos.
 
-X <- model.matrix(fit.model)
-n <- nrow(X)
-p <- ncol(X)
-w <- fit.model$weights
-W <- diag(w)
-H <- MASS::ginv(t(X)%*%W%*%X)
-#H <- solve(t(X)%*%W%*%X)
-H <- sqrt(W)%*%X%*%H%*%t(X)%*%sqrt(W)
-h <- diag(H)
-ts <- resid(fit.model,type="pearson")/sqrt(1-h)
-td <- resid(fit.model,type="deviance")/sqrt(1-h)
-di <- (h/(1-h))*(ts^2)
-a <- min(td)
-b <- max(td)
-plot(fitted(fit.model), h,xlab="Valor Ajustado", ylab="Medida h",
-pch=16)
-#identify(fitted(fit.model), h, n=3)
-```
+# Conclusão
 
-```{r}
-plot(di,xlab="Índice", ylab="Distância de Cook",
-pch=16)
-#identify(di, n=1)
-```
+A análise dos dados revelou que o modelo Binomial Negativo apresentou o melhor ajuste para descrever o número de óbitos por câncer nas regiões estudadas. A distribuição de Poisson, inicialmente considerada, mostrou superdispersão, o que justificou a adoção da distribuição Binomial Negativa. A análise de resíduos indicou um ajuste satisfatório, sem a presença de padrões sistemáticos que comprometessem a validade do modelo. Assim, a modelagem estatística, permite a identificação de fatores associados à mortalidade por câncer.
 
-```{r}
-plot(td,xlab="Índice", ylab="Resíduo Componente do Desvio",
-ylim=c(a-1,b+1), pch=16)
-abline(2,0,lty=2)
-abline(-2,0,lty=2)
-#identify(td, n=1)
-```
+# Referências
 
-```{r}
-w <- fit.model$weights
-eta <- predict(fit.model)
-z <- eta + resid(fit.model, type="pearson")/sqrt(w)
-plot(predict(fit.model),z,xlab="Preditor Linear", 
-ylab="Variavel z", pch=16)
-lines(smooth.spline(predict(fit.model), z, df=2))
-```
+PAULA, Gilberto A. Modelos de regressão com apoio computacional. São Paulo: IME/USP, 2013.
 
-
-
+Gauss M. Cordeiro e Clarice G.B. Demétrio. Modelos Lineares Generalizados e Extensões. Piracicaba: USP, 2008.
 
 
 
