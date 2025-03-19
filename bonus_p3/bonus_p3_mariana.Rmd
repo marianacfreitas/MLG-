@@ -11,9 +11,11 @@ knitr::opts_chunk$set(echo = FALSE, message = F, warning = F)
 
 # Introdução
 
-O trabalho a seguir tem como objetivo ajustar modelos estatísticos para estimar o número de óbitos por câncer em diferentes regiões do Canadá, considerando os fatores de gênero, local do câncer e população da região.
+O câncer representa um dos maiores desafios de saúde pública em todo o mundo, sendo a maior causa de óbitos prematuros no Canadá (Canadian Cancer Society. Canadian cancer statistics 2000). Assim, é de extrema relevância compreender melhor os casos de câncer e seus fatores associados, a fim de contribuir para o desenvolvimento de estratégias eficazes de prevenção, diagnóstico precoce e tratamento.
 
-O conjunto de dados utilizado, ccancer, contém informações sobre o número estimado de mortes por câncer em 2000 para as províncias de Ontário, Newfoundland e Quebec. O banco de dados apresenta 30 observações e cinco variáveis:
+Com esse cenário em vista, o trabalho a seguir utiliza os dados apresentados no Canadian Cancer Statistics 2000 como base para ajustar Modelos Lineares Generalizados (MLGs), para estimar o número de óbitos por câncer em diferentes regiões do Canadá, considerando os fatores de gênero, local do câncer e população da região.
+
+O conjunto de dados utilizado contém informações sobre o número estimado de mortes por câncer em 2000 para as províncias de Ontário, Newfoundland e Quebec. O banco de dados apresenta 30 observações e cinco variáveis:
 
 + Count: número estimado de óbitos para um determinado tipo de câncer;
 
@@ -61,7 +63,7 @@ Após a seleção do modelo mais adequado, foi realizada uma avaliação de ajus
 
 ## Análise Descritiva
 
-Para escolher um vom modelo inicial, é necessário primeiro fazer uma análise descritiva dos dados, a fim de melhor compreender a sua natureza e, então, encontrar também um modelo adequado para descrever o conjunto de dados. A seguir, temos a apresentação de medidas de resumo para ambas as variáveis quantitativas e qualitativas relacionadas ao número de casos de câncer.
+Para escolher um bom modelo inicial, é necessário primeiro fazer uma análise descritiva dos dados, a fim de melhor compreender a sua natureza e, então, encontrar também um modelo adequado para descrever o conjunto de dados. A seguir, temos a apresentação de medidas de resumo para ambas as variáveis quantitativas e qualitativas relacionadas ao número de casos de câncer.
 
 ```{r}
 #Carregando os dados
